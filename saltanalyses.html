@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Salt Analysis Lab</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; color: #333; margin: 20px; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h1, h2 { color: #2c3e50; }
+        .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .panel { padding: 15px; border: 1px solid #ddd; border-radius: 5px; background: #fafafa; }
+        select, button { padding: 10px; margin: 5px 0; width: 100%; box-sizing: border-box; font-size: 16px; }
+        button { background-color: #3498db; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        button:hover { background-color: #2980b9; }
+        .danger { background-color: #e74c3c; }
+        .danger:hover { background-color: #c0392b; }
+        .success { background-color: #2ecc71; }
+        .success:hover { background-color: #27ae60; }
+        #observation-screen { background: #1e1e1e; color: #00ff00; padding: 15px; font-family: monospace; height: 100px; overflow-y: auto; border-radius: 4px; margin-top: 10px; }
+        #test-tube-contents { font-style: italic; color: #7f8c8d; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Virtual Salt Analysis Lab</h1>
+    <p>A random salt (Cation: NH4+ or Pb2+ | Anion: Cl-, CO3 2-, NO3-, Br-) is in your test tube.</p>
+    
+    <div class="dashboard">
+        <!-- Reagents Panel -->
+        <div class="panel">
+            <h2>Actions & Reagents</h2>
+            <select id="reagent-select">
+                <option value="">-- Select a Reagent --</option>
+                <option value="dil_h2so4">Dilute H2SO4</option>
+                <option value="conc_h2so4">Concentrated H2SO4</option>
+                <option value="naoh">NaOH Solution</option>
+                <option value="dil_hcl">Dilute HCl</option>
+                <option value="cu_turnings">Copper (Cu) Turnings</option>
+                <option value="nesslers">Nessler's Reagent</option>
+            </select>
+            <button onclick="addReagent()">Add Reagent to Test Tube</button>
+            <hr>
+            <button onclick="toggleHeat()" id="heat-btn">Heat the Test Tube: OFF</button>
+            <button onclick="smellTube()">Waft & Smell</button>
+            <button onclick="bringNH4OH()">Bring NH4OH Rod Near Tube</button>
+            <hr>
+            <button class="danger" onclick="washTube()">Wash Test Tube (Start Fresh Test)</button>
+        </div>
+
+        <!-- Observation Panel -->
+        <div class="panel">
+            <h2>Observations</h2>
+            <div id="test-tube-contents">Contents: Salt</div>
+            <div id="observation-screen">Waiting for action...</div>
+            
+            <hr>
+            <h2>Make a Guess</h2>
+            <select id="guess-cation">
+                <option value="">-- Cation --</option>
+                <option value="nh4">Ammonium (NH4+)</option>
+                <option value="pb">Lead (Pb2+)</option>
+            </select>
+            <select id="guess-anion">
+                <option value="">-- Anion --</option>
+                <option value="cl">Chloride (Cl-)</option>
+                <option value="co3">Carbonate (CO3 2-)</option>
+                <option value="no3">Nitrate (NO3-)</option>
+                <option value="br">Bromide (Br-)</option>
+            </select>
+            <button class="success" onclick="checkGuess()">Submit Identification</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const anions = ["cl", "co3", "no3", "br"];
+    const cations = ["nh4", "pb"];
+    
+    let secretAnion = anions[Math.floor(Math.random() * anions.length)];
+    let secretCation = cations[Math.floor(Math.random() * cations.length)];
+    
+    let tubeContents = ["salt"];
+    let isHeated = false;
+
+    function logObservation(msg) {
+        const screen = document.getElementById('observation-screen');
+        screen.innerHTML = `> ${msg}<br>` + screen.innerHTML;
+    }
+
+    function updateTubeUI() {
+        document.getElementById('test-tube-contents').innerText = "Contents: " + tubeContents.join(" + ");
+        const heatBtn = document.getElementById('heat-btn');
+        heatBtn.innerText = `Heat the Test Tube: ${isHeated ? "ON" : "OFF"}`;
+        heatBtn.style.backgroundColor = isHeated ? "#e67e22" : "#3498db";
+    }
+
+    function addReagent() {
+        const select = document.getElementById('reagent-select');
+        const reagent = select.value;
+        if (!reagent) return;
+        
+        if (!tubeContents.includes(reagent)) {
+            tubeContents.push(reagent);
+            updateTubeUI();
+            logObservation(`Added ${select.options[select.selectedIndex].text}.`);
+            evaluateReactions();
+        } else {
+            logObservation("Reagent already in the tube.");
+        }
+    }
+
+    function toggleHeat() {
+        isHeated = !isHeated;
+        updateTubeUI();
+        if (isHeated) {
+            logObservation("Heating the test tube...");
+            evaluateReactions();
+        } else {
+            logObservation("Removed from heat.");
+        }
+    }
+
+    function smellTube() {
+        if (tubeContents.includes("naoh") && isHeated && secretCation === "nh4") {
+            logObservation("Observation: Strong smell of ammonia detected.");
+        } else if (tubeContents.includes("conc_h2so4") && ["cl", "br"].includes(secretAnion)) {
+             logObservation("Observation: Pungent smell detected.");
+        } else {
+            logObservation("Observation: No distinct smell.");
+        }
+    }
+
+    function bringNH4OH() {
+        if (tubeContents.includes("conc_h2so4") && secretAnion === "cl") {
+            logObservation("Observation: Dense white fumes formed near the rod (NH4Cl).");
+        } else {
+            logObservation("Observation: No reaction with NH4OH rod.");
+        }
+    }
+
+    function washTube() {
+        tubeContents = ["salt"];
+        isHeated = false;
+        updateTubeUI();
+        logObservation("--- Test tube washed. Starting fresh with the same salt. ---");
+    }
+
+    function evaluateReactions() {
+        // Anion Tests
+        if (tubeContents.includes("dil_h2so4") && secretAnion === "co3") {
+            logObservation("Observation: Brisk effervescence due to evolution of colourless & odourless gas.");
+        }
+        
+        if (tubeContents.includes("conc_h2so4")) {
+            if (secretAnion === "br" && isHeated) {
+                logObservation("Observation: Yellowish brown vapours evolved.");
+            }
+            if (secretAnion === "no3" && isHeated) {
+                if (tubeContents.includes("cu_turnings")) {
+                    logObservation("Observation: Reddish brown vapours evolved (NO2).");
+                } else {
+                    logObservation("Observation: Colourless vapours with pungent smell evolved.");
+                }
+            }
+        }
+
+        // Cation Tests
+        if (tubeContents.includes("dil_hcl") && secretCation === "pb") {
+            logObservation("Observation: White precipitate formed.");
+        }
+        
+        if (tubeContents.includes("nesslers") && tubeContents.includes("naoh") && secretCation === "nh4") {
+            logObservation("Observation: Brown precipitate formed.");
+        }
+    }
+
+    function checkGuess() {
+        const gCat = document.getElementById('guess-cation').value;
+        const gAn = document.getElementById('guess-anion').value;
+        
+        if (!gCat || !gAn) {
+            alert("Please select both a cation and an anion.");
+            return;
+        }
+        
+        if (gCat === secretCation && gAn === secretAnion) {
+            alert("Congratulations! You correctly identified the salt.");
+            location.reload(); // Restart game
+        } else {
+            alert("Incorrect identification. Wash the tube and perform more tests!");
+        }
+    }
+</script>
+</body>
+</html>
+
